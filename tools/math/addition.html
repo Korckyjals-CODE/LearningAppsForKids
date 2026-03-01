@@ -201,6 +201,8 @@
     }
 
     let expectedSum = 0;
+    let currentTopDigits = [];
+    let currentBottomDigits = [];
 
     function renderDigits(containerId, value) {
       const digits = String(value).padStart(3, "0").split("");
@@ -257,10 +259,24 @@
       });
     }
 
+    function getRequiredCarryColumns() {
+      const onesSum = currentTopDigits[2] + currentBottomDigits[2];
+      const requiresTensCarry = onesSum >= 10;
+      const tensSum = currentTopDigits[1] + currentBottomDigits[1] + (requiresTensCarry ? 1 : 0);
+      const requiresHundredsCarry = tensSum >= 10;
+
+      return {
+        hundreds: requiresHundredsCarry,
+        tens: requiresTensCarry,
+      };
+    }
+
     function generateProblem() {
       const firstNumber = randomThreeDigitNumber();
       const secondNumber = randomThreeDigitNumber();
       expectedSum = firstNumber + secondNumber;
+      currentTopDigits = String(firstNumber).padStart(3, "0").split("").map(Number);
+      currentBottomDigits = String(secondNumber).padStart(3, "0").split("").map(Number);
 
       renderDigits("top-digits", firstNumber);
       renderDigits("bottom-digits", secondNumber);
@@ -286,6 +302,19 @@
 
       if (digitValues.some((value) => value === "")) {
         feedback.textContent = "Please fill in all four result boxes.";
+        feedback.className = "feedback error message";
+        return;
+      }
+
+      const requiredCarryColumns = getRequiredCarryColumns();
+      const hundredsCarry = carryInputs[0].value.trim();
+      const tensCarry = carryInputs[1].value.trim();
+
+      if (
+        (requiredCarryColumns.hundreds && hundredsCarry === "") ||
+        (requiredCarryColumns.tens && tensCarry === "")
+      ) {
+        feedback.textContent = "Please fill in required carry boxes.";
         feedback.className = "feedback error message";
         return;
       }

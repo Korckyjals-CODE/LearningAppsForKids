@@ -215,6 +215,8 @@
     }
 
     let expectedDifference = 0;
+    let currentTopDigits = [];
+    let currentBottomDigits = [];
 
     function renderDigits(containerId, value) {
       const digits = String(value).padStart(3, "0").split("");
@@ -273,6 +275,17 @@
       });
     }
 
+    function getRequiredBorrowColumns() {
+      const requiresTensBorrow = currentTopDigits[2] < currentBottomDigits[2];
+      const adjustedTensTopDigit = currentTopDigits[1] - (requiresTensBorrow ? 1 : 0);
+      const requiresHundredsBorrow = adjustedTensTopDigit < currentBottomDigits[1];
+
+      return {
+        hundreds: requiresHundredsBorrow,
+        tens: requiresTensBorrow,
+      };
+    }
+
     function updateBorrowVisualState() {
       const topDigitCells = Array.from(document.querySelectorAll("#top-digits .digit"));
 
@@ -297,6 +310,8 @@
       }
 
       expectedDifference = topNumber - bottomNumber;
+      currentTopDigits = String(topNumber).padStart(3, "0").split("").map(Number);
+      currentBottomDigits = String(bottomNumber).padStart(3, "0").split("").map(Number);
 
       renderDigits("top-digits", topNumber);
       renderDigits("bottom-digits", bottomNumber);
@@ -322,6 +337,19 @@
 
       if (digitValues.some((value) => value === "")) {
         feedback.textContent = "Please fill in all three result boxes.";
+        feedback.className = "feedback error message";
+        return;
+      }
+
+      const requiredBorrowColumns = getRequiredBorrowColumns();
+      const hundredsBorrow = borrowInputs[0].value.trim();
+      const tensBorrow = borrowInputs[1].value.trim();
+
+      if (
+        (requiredBorrowColumns.hundreds && hundredsBorrow === "") ||
+        (requiredBorrowColumns.tens && tensBorrow === "")
+      ) {
+        feedback.textContent = "Please fill in required borrow boxes.";
         feedback.className = "feedback error message";
         return;
       }
