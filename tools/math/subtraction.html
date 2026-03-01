@@ -124,6 +124,7 @@
       height: 11rem;
       margin-left: -5.5rem;
       margin-top: -5.5rem;
+      box-sizing: border-box;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.98);
       border: 2px solid #111;
@@ -138,10 +139,11 @@
 
     .picker-option {
       position: absolute;
-      min-width: 2.3rem;
+      width: 2.3rem;
       height: 2.3rem;
-      margin-left: -1.15rem;
-      margin-top: -1.15rem;
+      box-sizing: border-box;
+      margin: 0;
+      transform: translate(-50%, -50%);
       border-radius: 999px;
       border: 1px solid #111;
       background: #fff;
@@ -152,7 +154,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 0.35rem;
+      padding: 0;
       white-space: nowrap;
     }
 
@@ -484,8 +486,10 @@
 
     function renderPickerOptions(options) {
       valuePicker.innerHTML = "";
-      const center = 5;
-      const radius = options.length === 2 ? 2.35 : 4.1;
+      const pickerSize = parseFloat(getComputedStyle(valuePicker).width);
+      const center = pickerSize / 2;
+      const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const radius = (options.length === 2 ? 2.35 : 4.1) * rootFontSize;
 
       options.forEach((option, index) => {
         const angle = options.length === 2
@@ -502,8 +506,8 @@
           button.classList.add("picker-option-empty");
         }
 
-        button.style.left = `${center + Math.cos(angle) * radius}rem`;
-        button.style.top = `${center + Math.sin(angle) * radius}rem`;
+        button.style.left = `${center + Math.cos(angle) * radius}px`;
+        button.style.top = `${center + Math.sin(angle) * radius}px`;
         valuePicker.appendChild(button);
       });
     }
