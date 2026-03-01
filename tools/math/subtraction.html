@@ -494,7 +494,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "picker-option";
-        button.textContent = option === "" ? "Empty" : option;
+        button.textContent = option === "" ? "" : option;
         button.setAttribute("aria-label", option === "" ? "Empty value" : `Value ${option}`);
         button.dataset.value = option;
 
