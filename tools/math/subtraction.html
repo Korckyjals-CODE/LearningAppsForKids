@@ -62,6 +62,7 @@
       background: #fff;
       box-sizing: border-box;
       letter-spacing: -0.06em;
+      cursor: pointer;
     }
 
     .digit.borrow-replaced::before,
@@ -108,6 +109,55 @@
       line-height: 1.2;
       padding: 0.05em 0;
       background: #fff;
+      cursor: pointer;
+    }
+
+    .borrow-input:focus,
+    .result-input:focus {
+      outline: 2px solid #2257d5;
+      outline-offset: 1px;
+    }
+
+    .value-picker {
+      position: absolute;
+      width: 11rem;
+      height: 11rem;
+      margin-left: -5.5rem;
+      margin-top: -5.5rem;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.98);
+      border: 2px solid #111;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+      z-index: 20;
+      display: none;
+    }
+
+    .value-picker.open {
+      display: block;
+    }
+
+    .picker-option {
+      position: absolute;
+      min-width: 2.3rem;
+      height: 2.3rem;
+      margin-left: -1.15rem;
+      margin-top: -1.15rem;
+      border-radius: 999px;
+      border: 1px solid #111;
+      background: #fff;
+      font: inherit;
+      font-size: 0.9rem;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0.35rem;
+      white-space: nowrap;
+    }
+
+    .picker-option-empty {
+      font-size: 0.62rem;
     }
 
     .actions {
@@ -189,9 +239,9 @@
     <div class="row borrow-row">
       <span class="operator" aria-hidden="true"></span>
       <div class="digits" aria-label="Borrow row">
-        <input class="borrow-input" type="text" inputmode="numeric" maxlength="2" aria-label="Borrow for hundreds column" tabindex="4">
-        <input class="borrow-input" type="text" inputmode="numeric" maxlength="2" aria-label="Borrow for tens column" tabindex="2">
-        <input class="borrow-input" type="text" inputmode="numeric" maxlength="2" aria-label="Borrow for ones column" tabindex="6">
+        <input class="borrow-input" type="text" inputmode="none" maxlength="2" aria-label="Borrow for hundreds column" tabindex="4" readonly>
+        <input class="borrow-input" type="text" inputmode="none" maxlength="2" aria-label="Borrow for tens column" tabindex="2" readonly>
+        <input class="borrow-input" type="text" inputmode="none" maxlength="2" aria-label="Borrow for ones column" tabindex="6" readonly>
       </div>
     </div>
     <div class="row">
@@ -206,12 +256,13 @@
     <div class="row result-row">
       <span class="operator" aria-hidden="true">=</span>
       <div class="digits" aria-label="Result row">
-        <input class="result-input" type="text" inputmode="numeric" maxlength="1" aria-label="Hundreds digit" tabindex="5">
-        <input class="result-input" type="text" inputmode="numeric" maxlength="1" aria-label="Tens digit" tabindex="3">
-        <input class="result-input" type="text" inputmode="numeric" maxlength="1" aria-label="Ones digit" tabindex="1">
+        <input class="result-input" type="text" inputmode="none" maxlength="1" aria-label="Hundreds digit" tabindex="5" readonly>
+        <input class="result-input" type="text" inputmode="none" maxlength="1" aria-label="Tens digit" tabindex="3" readonly>
+        <input class="result-input" type="text" inputmode="none" maxlength="1" aria-label="Ones digit" tabindex="1" readonly>
       </div>
     </div>
     <p class="feedback" id="feedback" aria-live="polite"></p>
+    <div class="value-picker" id="value-picker" aria-hidden="true"></div>
   </section>
   <div class="actions">
     <a class="action-link" href="../../subjects/math.html">Back to Math Menu</a>
@@ -256,8 +307,12 @@
     const newProblemButton = document.getElementById("new-problem");
     const clearResultsButton = document.getElementById("clear-results");
     const feedback = document.getElementById("feedback");
+    const board = document.querySelector(".board");
+    const valuePicker = document.getElementById("value-picker");
     const correctCountElement = document.getElementById("correct-count");
     const wrongCountElement = document.getElementById("wrong-count");
+    const resultPickerOptions = ["", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    let activePickerInput = null;
 
     function updateScoreDisplay() {
       correctCountElement.textContent = String(correctCount);
@@ -303,23 +358,15 @@
       });
     });
 
-    function enableSequenceNavigation(inputSequence) {
-      inputSequence.forEach((input, index) => {
-        input.addEventListener("input", () => {
-          const maxChars = input.maxLength > 0 ? input.maxLength : 1;
-          if (input.value.length >= maxChars && index < inputSequence.length - 1) {
-            inputSequence[index + 1].focus();
-            inputSequence[index + 1].select();
-          }
-        });
+    function moveToNextInput(inputSequence, currentInput) {
+      const index = inputSequence.indexOf(currentInput);
+      if (index > -1 && index < inputSequence.length - 1) {
+        const nextInput = inputSequence[index + 1];
+        nextInput.focus();
+        return;
+      }
 
-        input.addEventListener("keydown", (event) => {
-          if (event.key === "Backspace" && input.value === "" && index > 0) {
-            inputSequence[index - 1].focus();
-            inputSequence[index - 1].select();
-          }
-        });
-      });
+      closePicker();
     }
 
     function clearInputs(inputs) {
@@ -415,6 +462,7 @@
       updateBorrowVisualState();
       feedback.textContent = "";
       feedback.className = "feedback";
+      closePicker();
     }
 
     const entrySequence = [
@@ -425,7 +473,116 @@
       resultInputs[0],
     ];
 
-    enableSequenceNavigation(entrySequence);
+    function getBorrowPickerOptions(input) {
+      const index = borrowInputs.indexOf(input);
+      if (index === -1) {
+        return ["", "10"];
+      }
+
+      return ["", `1${currentBottomDigits[index]}`];
+    }
+
+    function renderPickerOptions(options) {
+      valuePicker.innerHTML = "";
+      const center = 5;
+      const radius = options.length === 2 ? 2.35 : 4.1;
+
+      options.forEach((option, index) => {
+        const angle = options.length === 2
+          ? (index === 0 ? Math.PI : 0)
+          : (((Math.PI * 2) / options.length) * index - (Math.PI / 2));
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "picker-option";
+        button.textContent = option === "" ? "Empty" : option;
+        button.setAttribute("aria-label", option === "" ? "Empty value" : `Value ${option}`);
+        button.dataset.value = option;
+
+        if (option === "") {
+          button.classList.add("picker-option-empty");
+        }
+
+        button.style.left = `${center + Math.cos(angle) * radius}rem`;
+        button.style.top = `${center + Math.sin(angle) * radius}rem`;
+        valuePicker.appendChild(button);
+      });
+    }
+
+    function positionPickerAtInput(input) {
+      const inputRect = input.getBoundingClientRect();
+      const boardRect = board.getBoundingClientRect();
+      valuePicker.style.left = `${inputRect.left - boardRect.left + (inputRect.width / 2)}px`;
+      valuePicker.style.top = `${inputRect.top - boardRect.top + (inputRect.height / 2)}px`;
+    }
+
+    function openPickerForInput(input) {
+      activePickerInput = input;
+
+      if (borrowInputs.includes(input)) {
+        renderPickerOptions(getBorrowPickerOptions(input));
+      } else {
+        renderPickerOptions(resultPickerOptions);
+      }
+
+      positionPickerAtInput(input);
+      valuePicker.classList.add("open");
+      valuePicker.setAttribute("aria-hidden", "false");
+    }
+
+    function closePicker() {
+      activePickerInput = null;
+      valuePicker.classList.remove("open");
+      valuePicker.setAttribute("aria-hidden", "true");
+      valuePicker.innerHTML = "";
+    }
+
+    function setInputValueFromPicker(input, value) {
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    [...borrowInputs, ...resultInputs].forEach((input) => {
+      input.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openPickerForInput(input);
+      });
+
+      input.addEventListener("focus", () => {
+        if (activePickerInput !== input) {
+          openPickerForInput(input);
+        }
+      });
+    });
+
+    valuePicker.addEventListener("click", (event) => {
+      const optionButton = event.target.closest(".picker-option");
+      if (!optionButton || !activePickerInput) {
+        return;
+      }
+
+      const chosenValue = optionButton.dataset.value ?? "";
+      setInputValueFromPicker(activePickerInput, chosenValue);
+
+      if (chosenValue !== "") {
+        moveToNextInput(entrySequence, activePickerInput);
+      } else {
+        closePicker();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        target.closest(".borrow-input") ||
+        target.closest(".result-input") ||
+        target.closest("#value-picker")
+      ) {
+        return;
+      }
+
+      closePicker();
+    });
 
     checkButton.addEventListener("click", checkAnswer);
 
