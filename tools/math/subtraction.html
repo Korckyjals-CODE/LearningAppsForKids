@@ -42,6 +42,7 @@
       border-radius: 4px;
       text-align: center;
       min-width: 1.4em;
+      position: relative;
     }
 
     .borrow-row {
@@ -54,10 +55,32 @@
       border-radius: 4px;
       text-align: center;
       font: inherit;
-      font-size: 0.6em;
+      font-size: 0.5em;
       line-height: 1.2;
-      padding: 0.15em 0;
+      padding: 0.1em 0;
       background: #fff;
+      box-sizing: border-box;
+      letter-spacing: -0.06em;
+    }
+
+    .digit.borrow-replaced::before,
+    .digit.borrow-replaced::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      width: 80%;
+      border-top: 2px solid #a1260d;
+      transform-origin: center;
+      pointer-events: none;
+    }
+
+    .digit.borrow-replaced::before {
+      transform: rotate(40deg);
+    }
+
+    .digit.borrow-replaced::after {
+      transform: rotate(-40deg);
     }
 
     .line {
@@ -130,9 +153,9 @@
     <div class="row borrow-row">
       <span class="operator" aria-hidden="true"></span>
       <div class="digits" aria-label="Borrow row">
-        <input class="borrow-input" type="text" inputmode="numeric" maxlength="1" aria-label="Borrow for hundreds column" tabindex="4">
-        <input class="borrow-input" type="text" inputmode="numeric" maxlength="1" aria-label="Borrow for tens column" tabindex="2">
-        <input class="borrow-input" type="text" inputmode="numeric" maxlength="1" aria-label="Borrow for ones column" tabindex="6">
+        <input class="borrow-input" type="text" inputmode="numeric" maxlength="2" aria-label="Borrow for hundreds column" tabindex="4">
+        <input class="borrow-input" type="text" inputmode="numeric" maxlength="2" aria-label="Borrow for tens column" tabindex="2">
+        <input class="borrow-input" type="text" inputmode="numeric" maxlength="2" aria-label="Borrow for ones column" tabindex="6">
       </div>
     </div>
     <div class="row">
@@ -188,7 +211,8 @@
 
     borrowInputs.forEach((input) => {
       input.addEventListener("input", () => {
-        input.value = input.value.replace(/\D/g, "").slice(0, 1);
+        input.value = input.value.replace(/\D/g, "").slice(0, 2);
+        updateBorrowVisualState();
       });
     });
 
@@ -201,7 +225,8 @@
     function enableSequenceNavigation(inputSequence) {
       inputSequence.forEach((input, index) => {
         input.addEventListener("input", () => {
-          if (input.value !== "" && index < inputSequence.length - 1) {
+          const maxChars = input.maxLength > 0 ? input.maxLength : 1;
+          if (input.value.length >= maxChars && index < inputSequence.length - 1) {
             inputSequence[index + 1].focus();
             inputSequence[index + 1].select();
           }
@@ -222,6 +247,19 @@
       });
     }
 
+    function updateBorrowVisualState() {
+      const topDigitCells = Array.from(document.querySelectorAll("#top-digits .digit"));
+
+      borrowInputs.forEach((input, index) => {
+        const topDigitCell = topDigitCells[index];
+        if (!topDigitCell) {
+          return;
+        }
+
+        topDigitCell.classList.toggle("borrow-replaced", input.value.trim() !== "");
+      });
+    }
+
     function generateProblem() {
       let topNumber = randomThreeDigitNumber();
       let bottomNumber = randomThreeDigitNumber();
@@ -238,6 +276,7 @@
       renderDigits("bottom-digits", bottomNumber);
       clearInputs(borrowInputs);
       clearInputs(resultInputs);
+      updateBorrowVisualState();
       feedback.textContent = "";
       feedback.className = "feedback";
     }
