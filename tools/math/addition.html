@@ -203,6 +203,7 @@
     let expectedSum = 0;
     let currentTopDigits = [];
     let currentBottomDigits = [];
+    let wasResultComplete = false;
 
     function renderDigits(containerId, value) {
       const digits = String(value).padStart(3, "0").split("");
@@ -232,6 +233,11 @@
     resultInputs.forEach((input) => {
       input.addEventListener("input", () => {
         input.value = input.value.replace(/\D/g, "").slice(0, 1);
+        const isResultComplete = areAllResultInputsFilled();
+        if (isResultComplete && !wasResultComplete) {
+          checkAnswer();
+        }
+        wasResultComplete = isResultComplete;
       });
     });
 
@@ -259,6 +265,10 @@
       });
     }
 
+    function areAllResultInputsFilled() {
+      return resultInputs.every((input) => input.value.trim() !== "");
+    }
+
     function getRequiredCarryColumns() {
       const onesSum = currentTopDigits[2] + currentBottomDigits[2];
       const requiresTensCarry = onesSum >= 10;
@@ -271,33 +281,7 @@
       };
     }
 
-    function generateProblem() {
-      const firstNumber = randomThreeDigitNumber();
-      const secondNumber = randomThreeDigitNumber();
-      expectedSum = firstNumber + secondNumber;
-      currentTopDigits = String(firstNumber).padStart(3, "0").split("").map(Number);
-      currentBottomDigits = String(secondNumber).padStart(3, "0").split("").map(Number);
-
-      renderDigits("top-digits", firstNumber);
-      renderDigits("bottom-digits", secondNumber);
-      clearInputs(carryInputs);
-      clearInputs(resultInputs);
-      feedback.textContent = "";
-      feedback.className = "feedback";
-    }
-
-    const entrySequence = [
-      resultInputs[3],
-      carryInputs[1],
-      resultInputs[2],
-      carryInputs[0],
-      resultInputs[1],
-      resultInputs[0],
-    ];
-
-    enableSequenceNavigation(entrySequence);
-
-    checkButton.addEventListener("click", () => {
+    function checkAnswer() {
       const digitValues = resultInputs.map((input) => input.value.trim());
 
       if (digitValues.some((value) => value === "")) {
@@ -329,7 +313,36 @@
         feedback.textContent = "✗";
         feedback.className = "feedback error";
       }
-    });
+    }
+
+    function generateProblem() {
+      const firstNumber = randomThreeDigitNumber();
+      const secondNumber = randomThreeDigitNumber();
+      expectedSum = firstNumber + secondNumber;
+      currentTopDigits = String(firstNumber).padStart(3, "0").split("").map(Number);
+      currentBottomDigits = String(secondNumber).padStart(3, "0").split("").map(Number);
+
+      renderDigits("top-digits", firstNumber);
+      renderDigits("bottom-digits", secondNumber);
+      clearInputs(carryInputs);
+      clearInputs(resultInputs);
+      wasResultComplete = false;
+      feedback.textContent = "";
+      feedback.className = "feedback";
+    }
+
+    const entrySequence = [
+      resultInputs[3],
+      carryInputs[1],
+      resultInputs[2],
+      carryInputs[0],
+      resultInputs[1],
+      resultInputs[0],
+    ];
+
+    enableSequenceNavigation(entrySequence);
+
+    checkButton.addEventListener("click", checkAnswer);
 
     newProblemButton.addEventListener("click", () => {
       generateProblem();

@@ -217,6 +217,7 @@
     let expectedDifference = 0;
     let currentTopDigits = [];
     let currentBottomDigits = [];
+    let wasResultComplete = false;
 
     function renderDigits(containerId, value) {
       const digits = String(value).padStart(3, "0").split("");
@@ -247,6 +248,11 @@
     resultInputs.forEach((input) => {
       input.addEventListener("input", () => {
         input.value = input.value.replace(/\D/g, "").slice(0, 1);
+        const isResultComplete = areAllResultInputsFilled();
+        if (isResultComplete && !wasResultComplete) {
+          checkAnswer();
+        }
+        wasResultComplete = isResultComplete;
       });
     });
 
@@ -275,6 +281,10 @@
       });
     }
 
+    function areAllResultInputsFilled() {
+      return resultInputs.every((input) => input.value.trim() !== "");
+    }
+
     function getRequiredBorrowColumns() {
       const requiresTensBorrow = currentTopDigits[2] < currentBottomDigits[2];
       const adjustedTensTopDigit = currentTopDigits[1] - (requiresTensBorrow ? 1 : 0);
@@ -284,6 +294,40 @@
         hundreds: requiresHundredsBorrow,
         tens: requiresTensBorrow,
       };
+    }
+
+    function checkAnswer() {
+      const digitValues = resultInputs.map((input) => input.value.trim());
+
+      if (digitValues.some((value) => value === "")) {
+        feedback.textContent = "Please fill in all three result boxes.";
+        feedback.className = "feedback error message";
+        return;
+      }
+
+      const requiredBorrowColumns = getRequiredBorrowColumns();
+      const hundredsBorrow = borrowInputs[0].value.trim();
+      const tensBorrow = borrowInputs[1].value.trim();
+
+      if (
+        (requiredBorrowColumns.hundreds && hundredsBorrow === "") ||
+        (requiredBorrowColumns.tens && tensBorrow === "")
+      ) {
+        feedback.textContent = "Please fill in required borrow boxes.";
+        feedback.className = "feedback error message";
+        return;
+      }
+
+      const answerDigits = digitValues.join("");
+      const typedAnswer = Number(answerDigits);
+
+      if (typedAnswer === expectedDifference) {
+        feedback.textContent = "✓";
+        feedback.className = "feedback success";
+      } else {
+        feedback.textContent = "✗";
+        feedback.className = "feedback error";
+      }
     }
 
     function updateBorrowVisualState() {
@@ -317,6 +361,7 @@
       renderDigits("bottom-digits", bottomNumber);
       clearInputs(borrowInputs);
       clearInputs(resultInputs);
+      wasResultComplete = false;
       updateBorrowVisualState();
       feedback.textContent = "";
       feedback.className = "feedback";
@@ -332,39 +377,7 @@
 
     enableSequenceNavigation(entrySequence);
 
-    checkButton.addEventListener("click", () => {
-      const digitValues = resultInputs.map((input) => input.value.trim());
-
-      if (digitValues.some((value) => value === "")) {
-        feedback.textContent = "Please fill in all three result boxes.";
-        feedback.className = "feedback error message";
-        return;
-      }
-
-      const requiredBorrowColumns = getRequiredBorrowColumns();
-      const hundredsBorrow = borrowInputs[0].value.trim();
-      const tensBorrow = borrowInputs[1].value.trim();
-
-      if (
-        (requiredBorrowColumns.hundreds && hundredsBorrow === "") ||
-        (requiredBorrowColumns.tens && tensBorrow === "")
-      ) {
-        feedback.textContent = "Please fill in required borrow boxes.";
-        feedback.className = "feedback error message";
-        return;
-      }
-
-      const answerDigits = digitValues.join("");
-      const typedAnswer = Number(answerDigits);
-
-      if (typedAnswer === expectedDifference) {
-        feedback.textContent = "✓";
-        feedback.className = "feedback success";
-      } else {
-        feedback.textContent = "✗";
-        feedback.className = "feedback error";
-      }
-    });
+    checkButton.addEventListener("click", checkAnswer);
 
     newProblemButton.addEventListener("click", () => {
       generateProblem();
