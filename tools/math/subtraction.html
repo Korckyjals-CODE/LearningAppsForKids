@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subtraction Practice | Math</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+    }
+
+    .board {
+      display: inline-block;
+      margin-top: 1rem;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 2rem;
+      line-height: 1.3;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.35em;
+    }
+
+    .operator {
+      width: 1ch;
+      margin-right: 0.5ch;
+      text-align: center;
+    }
+
+    .digits {
+      display: grid;
+      grid-template-columns: repeat(3, 1.4em);
+      gap: 0.2em;
+    }
+
+    .digit {
+      border: 2px solid #111;
+      border-radius: 4px;
+      text-align: center;
+      min-width: 1.4em;
+    }
+
+    .borrow-row {
+      margin-bottom: 0.2em;
+    }
+
+    .borrow-input {
+      width: 100%;
+      border: 1px dashed #666;
+      border-radius: 4px;
+      text-align: center;
+      font: inherit;
+      font-size: 0.6em;
+      line-height: 1.2;
+      padding: 0.15em 0;
+      background: #fff;
+    }
+
+    .line {
+      margin-top: 0.2rem;
+      border-top: 3px solid #111;
+      width: calc((1.4em * 3) + (0.2em * 2));
+      margin-left: calc(1ch + 0.35em);
+      margin-bottom: 0.25em;
+    }
+
+    .result-row .operator {
+      width: auto;
+      font-size: 0.8em;
+      margin-right: 0.4em;
+    }
+
+    .result-input {
+      width: 100%;
+      border: 2px solid #111;
+      border-radius: 4px;
+      text-align: center;
+      font: inherit;
+      font-size: 1em;
+      line-height: 1.2;
+      padding: 0.05em 0;
+      background: #fff;
+    }
+
+    .actions {
+      margin-top: 1rem;
+    }
+
+    .action-button {
+      font-size: 1rem;
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      margin-right: 0.5rem;
+    }
+
+    .feedback {
+      margin-top: 0.6rem;
+      font-size: 1rem;
+      min-height: 1.2em;
+    }
+
+    .feedback.success {
+      color: #1b7f35;
+    }
+
+    .feedback.error {
+      color: #a1260d;
+    }
+  </style>
+</head>
+<body>
+  <h1>Subtraction Practice</h1>
+  <section class="board" aria-label="Subtraction board">
+    <div class="row borrow-row">
+      <span class="operator" aria-hidden="true"></span>
+      <div class="digits" aria-label="Borrow row">
+        <input class="borrow-input" type="text" inputmode="numeric" maxlength="1" aria-label="Borrow for hundreds column" tabindex="4">
+        <input class="borrow-input" type="text" inputmode="numeric" maxlength="1" aria-label="Borrow for tens column" tabindex="2">
+        <input class="borrow-input" type="text" inputmode="numeric" maxlength="1" aria-label="Borrow for ones column" tabindex="6">
+      </div>
+    </div>
+    <div class="row">
+      <span class="operator" aria-hidden="true"></span>
+      <div class="digits" id="top-digits" aria-label="Top number"></div>
+    </div>
+    <div class="row">
+      <span class="operator" aria-hidden="true">-</span>
+      <div class="digits" id="bottom-digits" aria-label="Bottom number"></div>
+    </div>
+    <div class="line" aria-hidden="true"></div>
+    <div class="row result-row">
+      <span class="operator" aria-hidden="true">=</span>
+      <div class="digits" aria-label="Result row">
+        <input class="result-input" type="text" inputmode="numeric" maxlength="1" aria-label="Hundreds digit" tabindex="5">
+        <input class="result-input" type="text" inputmode="numeric" maxlength="1" aria-label="Tens digit" tabindex="3">
+        <input class="result-input" type="text" inputmode="numeric" maxlength="1" aria-label="Ones digit" tabindex="1">
+      </div>
+    </div>
+  </section>
+  <div class="actions">
+    <button type="button" class="action-button" id="check-answer">Check</button>
+    <button type="button" class="action-button" id="new-problem">New Problem</button>
+    <p class="feedback" id="feedback" aria-live="polite"></p>
+  </div>
+
+  <script>
+    function randomThreeDigitNumber() {
+      return Math.floor(Math.random() * 900) + 100;
+    }
+
+    let expectedDifference = 0;
+
+    function renderDigits(containerId, value) {
+      const digits = String(value).padStart(3, "0").split("");
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+
+      digits.forEach((digit) => {
+        const cell = document.createElement("span");
+        cell.className = "digit";
+        cell.textContent = digit;
+        container.appendChild(cell);
+      });
+    }
+
+    const borrowInputs = Array.from(document.querySelectorAll(".borrow-input"));
+    const resultInputs = Array.from(document.querySelectorAll(".result-input"));
+    const checkButton = document.getElementById("check-answer");
+    const newProblemButton = document.getElementById("new-problem");
+    const feedback = document.getElementById("feedback");
+
+    borrowInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        input.value = input.value.replace(/\D/g, "").slice(0, 1);
+      });
+    });
+
+    resultInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        input.value = input.value.replace(/\D/g, "").slice(0, 1);
+      });
+    });
+
+    function enableSequenceNavigation(inputSequence) {
+      inputSequence.forEach((input, index) => {
+        input.addEventListener("input", () => {
+          if (input.value !== "" && index < inputSequence.length - 1) {
+            inputSequence[index + 1].focus();
+            inputSequence[index + 1].select();
+          }
+        });
+
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Backspace" && input.value === "" && index > 0) {
+            inputSequence[index - 1].focus();
+            inputSequence[index - 1].select();
+          }
+        });
+      });
+    }
+
+    function clearInputs(inputs) {
+      inputs.forEach((input) => {
+        input.value = "";
+      });
+    }
+
+    function generateProblem() {
+      let topNumber = randomThreeDigitNumber();
+      let bottomNumber = randomThreeDigitNumber();
+
+      if (topNumber < bottomNumber) {
+        const swap = topNumber;
+        topNumber = bottomNumber;
+        bottomNumber = swap;
+      }
+
+      expectedDifference = topNumber - bottomNumber;
+
+      renderDigits("top-digits", topNumber);
+      renderDigits("bottom-digits", bottomNumber);
+      clearInputs(borrowInputs);
+      clearInputs(resultInputs);
+      feedback.textContent = "";
+      feedback.className = "feedback";
+    }
+
+    const entrySequence = [
+      resultInputs[2],
+      borrowInputs[1],
+      resultInputs[1],
+      borrowInputs[0],
+      resultInputs[0],
+    ];
+
+    enableSequenceNavigation(entrySequence);
+
+    checkButton.addEventListener("click", () => {
+      const digitValues = resultInputs.map((input) => input.value.trim());
+
+      if (digitValues.some((value) => value === "")) {
+        feedback.textContent = "Please fill in all three result boxes.";
+        feedback.className = "feedback error";
+        return;
+      }
+
+      const answerDigits = digitValues.join("");
+      const typedAnswer = Number(answerDigits);
+
+      if (typedAnswer === expectedDifference) {
+        feedback.textContent = "Great job! That answer is correct.";
+        feedback.className = "feedback success";
+      } else {
+        feedback.textContent = "Not quite yet. Try again.";
+        feedback.className = "feedback error";
+      }
+    });
+
+    newProblemButton.addEventListener("click", () => {
+      generateProblem();
+      resultInputs[resultInputs.length - 1].focus();
+    });
+
+    generateProblem();
+  </script>
+</body>
+</html>
