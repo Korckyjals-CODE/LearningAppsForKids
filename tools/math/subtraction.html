@@ -282,6 +282,20 @@
       text-align: left;
       justify-content: flex-start;
     }
+
+    .feedback-retry {
+      position: absolute;
+      left: calc(100% + 1rem);
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.9rem;
+      padding: 0.35rem 0.6rem;
+      border: 1px solid #111;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -313,6 +327,7 @@
       </div>
     </div>
     <p class="feedback" id="feedback" aria-live="polite"></p>
+    <button type="button" class="feedback-retry" id="retry-problem" hidden>Try again</button>
     <div class="value-picker" id="value-picker" aria-hidden="true"></div>
   </section>
   <div class="actions">
@@ -373,6 +388,7 @@
     const newProblemButton = document.getElementById("new-problem");
     const clearResultsButton = document.getElementById("clear-results");
     const feedback = document.getElementById("feedback");
+    const retryButton = document.getElementById("retry-problem");
     const board = document.querySelector(".board");
     const valuePicker = document.getElementById("value-picker");
     const correctCountElement = document.getElementById("correct-count");
@@ -412,6 +428,7 @@
       input.addEventListener("input", () => {
         input.value = input.value.replace(/\D/g, "").slice(0, 2);
         updateBorrowVisualState();
+        updateRetryVisibility();
       });
     });
 
@@ -423,6 +440,7 @@
           checkAnswer();
         }
         wasResultComplete = isResultComplete;
+        updateRetryVisibility();
       });
     });
 
@@ -435,6 +453,11 @@
 
     function areAllResultInputsFilled() {
       return resultInputs.every((input) => input.value.trim() !== "");
+    }
+
+    function updateRetryVisibility() {
+      const hasStartedAttempt = interactiveInputs.some((input) => input.value.trim() !== "");
+      retryButton.hidden = !hasStartedAttempt;
     }
 
     function getRequiredBorrowColumns() {
@@ -537,6 +560,19 @@
       });
     }
 
+    function resetCurrentAttempt() {
+      clearInputs(borrowInputs);
+      clearInputs(resultInputs);
+      wasResultComplete = false;
+      currentStepIndex = 0;
+      updateBorrowVisualState();
+      feedback.textContent = "";
+      feedback.className = "feedback";
+      updateRetryVisibility();
+      closePicker();
+      applySequenceState();
+    }
+
     function generateProblem() {
       let topNumber = randomThreeDigitNumber();
       let bottomNumber = randomThreeDigitNumber();
@@ -553,16 +589,8 @@
 
       renderDigits("top-digits", topNumber);
       renderDigits("bottom-digits", bottomNumber);
-      clearInputs(borrowInputs);
-      clearInputs(resultInputs);
-      wasResultComplete = false;
       currentProblemOutcome = null;
-      currentStepIndex = 0;
-      updateBorrowVisualState();
-      feedback.textContent = "";
-      feedback.className = "feedback";
-      closePicker();
-      applySequenceState();
+      resetCurrentAttempt();
     }
 
     const entrySequence = [
@@ -746,6 +774,11 @@
 
     newProblemButton.addEventListener("click", () => {
       generateProblem();
+      getCurrentStepInput()?.focus();
+    });
+
+    retryButton.addEventListener("click", () => {
+      resetCurrentAttempt();
       getCurrentStepInput()?.focus();
     });
 
