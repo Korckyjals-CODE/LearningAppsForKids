@@ -480,9 +480,18 @@
       }
     }
 
+    function getEffectiveTopDigits(filledBorrowColumns) {
+      return currentTopDigits.map((digit, index) => {
+        const receivesBorrow = index > 0 && filledBorrowColumns[index];
+        const givesBorrow = index < currentTopDigits.length - 1 && filledBorrowColumns[index + 1];
+        return digit + (receivesBorrow ? 10 : 0) - (givesBorrow ? 1 : 0);
+      });
+    }
+
     function updateBorrowVisualState() {
       const topDigitCells = Array.from(document.querySelectorAll("#top-digits .digit"));
       const filledBorrowColumns = borrowInputs.map((input) => input.value.trim() !== "");
+      const effectiveTopDigits = getEffectiveTopDigits(filledBorrowColumns);
 
       topDigitCells.forEach((cell) => {
         cell.classList.remove("target-borrowed", "source-borrowed");
@@ -517,9 +526,7 @@
           return;
         }
 
-        const sourceBaseDigit = currentTopDigits[sourceIndex];
-        const sourceReceivesBorrow = sourceIndex > 0 && filledBorrowColumns[sourceIndex];
-        const sourceDisplayValue = sourceBaseDigit + (sourceReceivesBorrow ? 10 : 0) - 1;
+        const sourceDisplayValue = effectiveTopDigits[sourceIndex];
 
         sourceReplacementDigit.textContent = String(sourceDisplayValue);
         sourceCell.classList.add("source-borrowed");
@@ -566,7 +573,9 @@
         return ["", "10"];
       }
 
-      return ["", `1${currentTopDigits[index]}`];
+      const filledBorrowColumns = borrowInputs.map((borrowInput) => borrowInput.value.trim() !== "");
+      const effectiveTopDigits = getEffectiveTopDigits(filledBorrowColumns);
+      return ["", `1${effectiveTopDigits[index]}`];
     }
 
     function renderPickerOptions(options) {
