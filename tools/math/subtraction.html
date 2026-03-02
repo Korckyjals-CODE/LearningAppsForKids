@@ -44,6 +44,9 @@
       text-align: center;
       min-width: 1.4em;
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .borrow-row {
@@ -65,23 +68,55 @@
       cursor: pointer;
     }
 
-    .digit.borrow-replaced::before,
-    .digit.borrow-replaced::after {
+    #top-digits .digit {
+      gap: 0.12em;
+    }
+
+    .digit-original {
+      position: relative;
+      display: inline-block;
+      min-width: 0.6em;
+      line-height: 1;
+      z-index: 1;
+    }
+
+    .digit-replacement {
+      display: none;
+      font-size: 0.8em;
+      line-height: 1;
+      z-index: 2;
+    }
+
+    #top-digits .digit.source-borrowed {
+      justify-content: flex-start;
+      padding-left: 0.12em;
+    }
+
+    #top-digits .digit.source-borrowed .digit-replacement {
+      display: inline-block;
+    }
+
+    .digit.target-borrowed .digit-original::before,
+    .digit.target-borrowed .digit-original::after,
+    .digit.source-borrowed .digit-original::before,
+    .digit.source-borrowed .digit-original::after {
       content: "";
       position: absolute;
       top: 50%;
-      left: 10%;
-      width: 80%;
+      left: -8%;
+      width: 116%;
       border-top: 2px solid #a1260d;
       transform-origin: center;
       pointer-events: none;
     }
 
-    .digit.borrow-replaced::before {
+    .digit.target-borrowed .digit-original::before,
+    .digit.source-borrowed .digit-original::before {
       transform: rotate(40deg);
     }
 
-    .digit.borrow-replaced::after {
+    .digit.target-borrowed .digit-original::after,
+    .digit.source-borrowed .digit-original::after {
       transform: rotate(-40deg);
     }
 
@@ -295,12 +330,27 @@
     function renderDigits(containerId, value) {
       const digits = String(value).padStart(3, "0").split("");
       const container = document.getElementById(containerId);
+      const isTopDigitsRow = containerId === "top-digits";
       container.innerHTML = "";
 
       digits.forEach((digit) => {
         const cell = document.createElement("span");
         cell.className = "digit";
-        cell.textContent = digit;
+        if (isTopDigitsRow) {
+          const originalDigit = document.createElement("span");
+          originalDigit.className = "digit-original";
+          originalDigit.textContent = digit;
+
+          const replacementDigit = document.createElement("span");
+          replacementDigit.className = "digit-replacement";
+          replacementDigit.setAttribute("aria-hidden", "true");
+
+          cell.dataset.originalDigit = digit;
+          cell.appendChild(replacementDigit);
+          cell.appendChild(originalDigit);
+        } else {
+          cell.textContent = digit;
+        }
         container.appendChild(cell);
       });
     }
@@ -432,14 +482,47 @@
 
     function updateBorrowVisualState() {
       const topDigitCells = Array.from(document.querySelectorAll("#top-digits .digit"));
+      const filledBorrowColumns = borrowInputs.map((input) => input.value.trim() !== "");
 
-      borrowInputs.forEach((input, index) => {
-        const topDigitCell = topDigitCells[index];
-        if (!topDigitCell) {
+      topDigitCells.forEach((cell) => {
+        cell.classList.remove("target-borrowed", "source-borrowed");
+        const replacementDigit = cell.querySelector(".digit-replacement");
+        if (replacementDigit) {
+          replacementDigit.textContent = "";
+        }
+      });
+
+      filledBorrowColumns.forEach((isFilled, index) => {
+        if (!isFilled) {
           return;
         }
 
-        topDigitCell.classList.toggle("borrow-replaced", input.value.trim() !== "");
+        const topDigitCell = topDigitCells[index];
+        if (topDigitCell) {
+          topDigitCell.classList.add("target-borrowed");
+        }
+
+        const sourceIndex = index - 1;
+        if (sourceIndex < 0) {
+          return;
+        }
+
+        const sourceCell = topDigitCells[sourceIndex];
+        if (!sourceCell) {
+          return;
+        }
+
+        const sourceReplacementDigit = sourceCell.querySelector(".digit-replacement");
+        if (!sourceReplacementDigit) {
+          return;
+        }
+
+        const sourceBaseDigit = currentTopDigits[sourceIndex];
+        const sourceReceivesBorrow = sourceIndex > 0 && filledBorrowColumns[sourceIndex];
+        const sourceDisplayValue = sourceBaseDigit + (sourceReceivesBorrow ? 10 : 0) - 1;
+
+        sourceReplacementDigit.textContent = String(sourceDisplayValue);
+        sourceCell.classList.add("source-borrowed");
       });
     }
 
