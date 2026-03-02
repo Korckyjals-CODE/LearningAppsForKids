@@ -461,13 +461,14 @@
     }
 
     function getRequiredBorrowColumns() {
-      const requiresTensBorrow = currentTopDigits[2] < currentBottomDigits[2];
-      const adjustedTensTopDigit = currentTopDigits[1] - (requiresTensBorrow ? 1 : 0);
-      const requiresHundredsBorrow = adjustedTensTopDigit < currentBottomDigits[1];
+      const requiresOnesBorrow = currentTopDigits[2] < currentBottomDigits[2];
+      const adjustedTensTopDigit = currentTopDigits[1] - (requiresOnesBorrow ? 1 : 0);
+      const requiresTensBorrow = adjustedTensTopDigit < currentBottomDigits[1];
 
       return {
-        hundreds: requiresHundredsBorrow,
+        hundreds: false,
         tens: requiresTensBorrow,
+        ones: requiresOnesBorrow,
       };
     }
 
@@ -481,14 +482,31 @@
       }
 
       const requiredBorrowColumns = getRequiredBorrowColumns();
-      const hundredsBorrowWasSelected = borrowInputs[0].dataset.userSelected === "true";
-      const tensBorrowWasSelected = borrowInputs[1].dataset.userSelected === "true";
+      const requiredBorrowFlags = [
+        requiredBorrowColumns.hundreds,
+        requiredBorrowColumns.tens,
+        requiredBorrowColumns.ones,
+      ];
+      const requiredBorrowIndices = requiredBorrowFlags
+        .map((isRequired, index) => (isRequired ? index : -1))
+        .filter((index) => index !== -1);
+      const areRequiredBorrowBoxesSelected = requiredBorrowIndices.every(
+        (index) => borrowInputs[index].dataset.userSelected === "true"
+      );
 
-      if (
-        (requiredBorrowColumns.hundreds && !hundredsBorrowWasSelected) ||
-        (requiredBorrowColumns.tens && !tensBorrowWasSelected)
-      ) {
+      if (!areRequiredBorrowBoxesSelected) {
         feedback.textContent = "Please fill in required borrow boxes.";
+        feedback.className = "feedback error message";
+        return;
+      }
+
+      const expectedBorrowDigits = getDisplayTopDigits(requiredBorrowFlags);
+      const hasIncorrectBorrowValue = requiredBorrowIndices.some(
+        (index) => borrowInputs[index].value.trim() !== String(expectedBorrowDigits[index])
+      );
+
+      if (hasIncorrectBorrowValue) {
+        feedback.textContent = "One or more borrow values are incorrect.";
         feedback.className = "feedback error message";
         return;
       }
@@ -515,10 +533,23 @@
       });
     }
 
+    function getDisplayTopDigits(filledBorrowColumns) {
+      const displayTopDigits = getEffectiveTopDigits(filledBorrowColumns);
+
+      for (let index = displayTopDigits.length - 1; index > 0; index -= 1) {
+        while (displayTopDigits[index] < 0) {
+          displayTopDigits[index] += 10;
+          displayTopDigits[index - 1] -= 1;
+        }
+      }
+
+      return displayTopDigits;
+    }
+
     function updateBorrowVisualState() {
       const topDigitCells = Array.from(document.querySelectorAll("#top-digits .digit"));
       const filledBorrowColumns = borrowInputs.map((input) => input.value.trim() !== "");
-      const effectiveTopDigits = getEffectiveTopDigits(filledBorrowColumns);
+      const displayTopDigits = getDisplayTopDigits(filledBorrowColumns);
 
       topDigitCells.forEach((cell) => {
         cell.classList.remove("target-borrowed", "source-borrowed");
@@ -553,7 +584,7 @@
           return;
         }
 
-        const sourceDisplayValue = effectiveTopDigits[sourceIndex];
+        const sourceDisplayValue = displayTopDigits[sourceIndex];
 
         sourceReplacementDigit.textContent = String(sourceDisplayValue);
         sourceCell.classList.add("source-borrowed");
@@ -650,8 +681,10 @@
       }
 
       const filledBorrowColumns = borrowInputs.map((borrowInput) => borrowInput.value.trim() !== "");
-      const effectiveTopDigits = getEffectiveTopDigits(filledBorrowColumns);
-      return ["", `1${effectiveTopDigits[index]}`];
+      const tentativeBorrowColumns = [...filledBorrowColumns];
+      tentativeBorrowColumns[index] = true;
+      const displayTopDigits = getDisplayTopDigits(tentativeBorrowColumns);
+      return ["", String(displayTopDigits[index])];
     }
 
     function renderPickerOptions(options) {
