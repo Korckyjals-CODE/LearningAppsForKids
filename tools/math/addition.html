@@ -103,6 +103,18 @@
       outline-offset: 1px;
     }
 
+    .sequence-locked {
+      pointer-events: none;
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    .sequence-active {
+      border-color: #2257d5;
+      outline: 3px solid #2257d5;
+      outline-offset: 1px;
+    }
+
     .value-picker {
       position: absolute;
       width: 11rem;
@@ -302,7 +314,9 @@
     const correctCountElement = document.getElementById("correct-count");
     const wrongCountElement = document.getElementById("wrong-count");
     const pickerOptions = ["", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    const interactiveInputs = [...carryInputs, ...resultInputs];
     let activePickerInput = null;
+    let currentStepIndex = 0;
 
     function updateScoreDisplay() {
       correctCountElement.textContent = String(correctCount);
@@ -347,21 +361,10 @@
       });
     });
 
-    function moveToNextInput(inputSequence, currentInput) {
-      const index = inputSequence.indexOf(currentInput);
-      if (index > -1 && index < inputSequence.length - 1) {
-        const nextInput = inputSequence[index + 1];
-        nextInput.focus();
-        openPickerForInput(nextInput);
-        return;
-      }
-
-      closePicker();
-    }
-
     function clearInputs(inputs) {
       inputs.forEach((input) => {
         input.value = "";
+        delete input.dataset.userSelected;
       });
     }
 
@@ -391,12 +394,12 @@
       }
 
       const requiredCarryColumns = getRequiredCarryColumns();
-      const hundredsCarry = carryInputs[0].value.trim();
-      const tensCarry = carryInputs[1].value.trim();
+      const hundredsCarryWasSelected = carryInputs[0].dataset.userSelected === "true";
+      const tensCarryWasSelected = carryInputs[1].dataset.userSelected === "true";
 
       if (
-        (requiredCarryColumns.hundreds && hundredsCarry === "") ||
-        (requiredCarryColumns.tens && tensCarry === "")
+        (requiredCarryColumns.hundreds && !hundredsCarryWasSelected) ||
+        (requiredCarryColumns.tens && !tensCarryWasSelected)
       ) {
         feedback.textContent = "Please fill in required carry boxes.";
         feedback.className = "feedback error message";
@@ -430,9 +433,11 @@
       clearInputs(resultInputs);
       wasResultComplete = false;
       currentProblemOutcome = null;
+      currentStepIndex = 0;
       feedback.textContent = "";
       feedback.className = "feedback";
       closePicker();
+      applySequenceState();
     }
 
     const entrySequence = [
@@ -443,6 +448,47 @@
       resultInputs[1],
       resultInputs[0],
     ];
+
+    interactiveInputs.forEach((input) => {
+      input.dataset.defaultTabIndex = String(input.tabIndex);
+    });
+
+    function getCurrentStepInput() {
+      return entrySequence[currentStepIndex] ?? null;
+    }
+
+    function applySequenceState() {
+      const currentInput = getCurrentStepInput();
+
+      interactiveInputs.forEach((input) => {
+        const isCurrent = input === currentInput;
+        input.classList.toggle("sequence-active", isCurrent);
+        input.classList.toggle("sequence-locked", !isCurrent);
+        input.tabIndex = isCurrent ? Number(input.dataset.defaultTabIndex ?? 0) : -1;
+        input.setAttribute("aria-disabled", String(!isCurrent));
+
+        if (!isCurrent && document.activeElement === input) {
+          input.blur();
+        }
+      });
+
+      if (activePickerInput && activePickerInput !== currentInput) {
+        closePicker();
+      }
+    }
+
+    function advanceSequence(currentInput) {
+      if (currentInput !== getCurrentStepInput()) {
+        return;
+      }
+
+      if (currentStepIndex < entrySequence.length - 1) {
+        currentStepIndex += 1;
+      }
+
+      closePicker();
+      applySequenceState();
+    }
 
     function renderPickerOptions(options) {
       valuePicker.innerHTML = "";
@@ -478,6 +524,10 @@
     }
 
     function openPickerForInput(input) {
+      if (input !== getCurrentStepInput()) {
+        return;
+      }
+
       activePickerInput = input;
       renderPickerOptions(pickerOptions);
       positionPickerAtInput(input);
@@ -494,19 +544,18 @@
 
     function setInputValueFromPicker(input, value) {
       input.value = value;
+      input.dataset.userSelected = "true";
       input.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
-    [...carryInputs, ...resultInputs].forEach((input) => {
+    interactiveInputs.forEach((input) => {
       input.addEventListener("click", (event) => {
         event.stopPropagation();
-        openPickerForInput(input);
-      });
-
-      input.addEventListener("focus", () => {
-        if (activePickerInput !== input) {
-          openPickerForInput(input);
+        if (input !== getCurrentStepInput()) {
+          return;
         }
+        input.focus();
+        openPickerForInput(input);
       });
     });
 
@@ -516,11 +565,13 @@
         return;
       }
 
-      setInputValueFromPicker(activePickerInput, optionButton.dataset.value ?? "");
+      const currentInput = activePickerInput;
+      setInputValueFromPicker(currentInput, optionButton.dataset.value ?? "");
       const chosenValue = optionButton.dataset.value ?? "";
+      const shouldAdvance = chosenValue !== "" || carryInputs.includes(currentInput);
 
-      if (chosenValue !== "") {
-        moveToNextInput(entrySequence, activePickerInput);
+      if (shouldAdvance) {
+        advanceSequence(currentInput);
       } else {
         closePicker();
       }
@@ -551,7 +602,7 @@
 
     newProblemButton.addEventListener("click", () => {
       generateProblem();
-      resultInputs[resultInputs.length - 1].focus();
+      getCurrentStepInput()?.focus();
     });
 
     updateScoreDisplay();
